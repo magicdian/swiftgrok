@@ -62,7 +62,9 @@ func New(cfg *config.Config) (*Server, error) {
 			cfg:      sc,
 			upstream: u,
 			client:   &http.Client{Timeout: 60 * time.Second},
-			cache:    xref.NewCache(0),
+			// Per-source budget; with many sources this keeps total memory
+			// bounded (a 10k-line split is roughly 4MB).
+			cache: xref.NewCache(64 << 20),
 		}
 		s.sources = append(s.sources, sr)
 	}

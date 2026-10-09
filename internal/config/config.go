@@ -14,6 +14,9 @@ import (
 type Source struct {
 	// Name is a short label shown on the portal page and viewer toolbar.
 	Name string `json:"name"`
+	// Repo is an optional repository label shown on the portal page,
+	// e.g. "aosp-android13".
+	Repo string `json:"repo"`
 	// Upstream is the OpenGrok base URL, e.g. "http://127.0.0.1:8080".
 	Upstream string `json:"upstream"`
 	// Context is the webapp context path, e.g. "/source" or "/android13".

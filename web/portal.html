@@ -69,6 +69,7 @@
     transition: background-color 150ms ease;
   }
   .dot.on { background: var(--accent); }
+  .dot.auth { background: #f59e0b; }
   .dot.err { background: #ef4444; }
   .meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
   .meta b { font-size: 15px; font-weight: 600; }
@@ -106,7 +107,7 @@
         <span class="dot" aria-hidden="true"></span>
         <span class="meta">
           <b>{{.Name}}</b>
-          <span class="mono">{{.Context}}<i>&rarr;</i>{{.Upstream}}</span>
+          <span class="mono">{{if .Repo}}{{.Repo}} &middot; {{end}}{{.Context}}<i>&rarr;</i>{{.Upstream}}</span>
         </span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
@@ -118,11 +119,21 @@
   </footer>
 </main>
 <script>
-  // Probe each source root and reflect availability in the status dot.
+  // Probe each source root and reflect availability in the status dot:
+  // green = reachable, amber = login required, red = unreachable.
   document.querySelectorAll('.card').forEach(function (a) {
     var dot = a.querySelector('.dot')
     fetch(a.dataset.context + '/', { method: 'HEAD' })
-      .then(function (res) { dot.classList.add(res.ok ? 'on' : 'err') })
+      .then(function (res) {
+        if (res.ok) {
+          dot.classList.add('on')
+        } else if (res.status === 401 || res.status === 403) {
+          dot.classList.add('auth')
+          a.title = '需要 HTTP 认证，点击进入时登录'
+        } else {
+          dot.classList.add('err')
+        }
+      })
       .catch(function () { dot.classList.add('err') })
   })
 </script>
