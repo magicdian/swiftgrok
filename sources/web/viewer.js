@@ -19,6 +19,58 @@ const viewport = document.getElementById('sg-viewport')
 const toolbarEl = document.getElementById('sg-toolbar')
 const data = JSON.parse(document.getElementById('sg-data').textContent)
 
+const MESSAGES = {
+  en: {
+    home: 'Back to swiftgrok portal',
+    loading: 'swiftgrok loading…',
+    loadFailed: 'swiftgrok: failed to load lines, please refresh',
+    find: 'Find in file',
+    findShort: 'Find in file (⌘F / Ctrl+F)',
+    jump: 'Go to line',
+    lineNo: 'Line number',
+    noResults: 'No results',
+    prevMatch: 'Previous match (Shift+Enter)',
+    nextMatch: 'Next match (Enter)',
+    closeFind: 'Close (Esc)',
+    settings: 'Display settings',
+    fontSize: 'Font size',
+    lineHeight: 'Line height',
+    reset: 'Reset defaults',
+    decFontSize: 'Decrease font size',
+    incFontSize: 'Increase font size',
+    decLineHeight: 'Decrease line height',
+    incLineHeight: 'Increase line height',
+  },
+  zh: {
+    home: '返回 swiftgrok 主页',
+    loading: 'swiftgrok 加载中…',
+    loadFailed: 'swiftgrok: 行数据加载失败，请刷新重试',
+    find: '在文件中查找',
+    findShort: '在文件中查找 (⌘F / Ctrl+F)',
+    jump: '跳转到行号',
+    lineNo: '行号',
+    noResults: '无结果',
+    prevMatch: '上一个 (Shift+Enter)',
+    nextMatch: '下一个 (Enter)',
+    closeFind: '关闭 (Esc)',
+    settings: '显示设置',
+    fontSize: '字号',
+    lineHeight: '行高',
+    reset: '恢复默认',
+    decFontSize: '减小字号',
+    incFontSize: '增大字号',
+    decLineHeight: '减小行高',
+    incLineHeight: '增大行高',
+  },
+}
+
+// UI locale: localStorage override first, then browser language.
+const LOCALE = localStorage.getItem('sg-locale') ||
+  ((navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en')
+const t = (key) => (MESSAGES[LOCALE] && MESSAGES[LOCALE][key]) || MESSAGES.en[key] || key
+document.documentElement.style.setProperty('--sg-loading-text', JSON.stringify(t('loading')))
+document.documentElement.style.setProperty('--sg-error-text', JSON.stringify(t('loadFailed')))
+
 const DEFAULTS = { fontSize: 13, lineHeight: 1.5 }
 const BUFFER = 30 // extra lines rendered above/below the viewport
 
@@ -632,12 +684,12 @@ createApp({
       store.settings = Object.assign({}, DEFAULTS)
       applySettings()
     }
-    return { store, doJump, bump, reset, toggleFind, stepMatch, closeFind, findInput }
+    return { store, doJump, bump, reset, toggleFind, stepMatch, closeFind, findInput, t }
   },
   template: `
   <div class="sgt">
     <div class="sgt-bar" role="toolbar" aria-label="swiftgrok">
-      <a class="sgt-home" href="/" title="返回 swiftgrok 主页" aria-label="返回 swiftgrok 主页">
+      <a class="sgt-home" href="/" :title="t('home')" :aria-label="t('home')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </a>
       <span class="sgt-brand" :title="'swiftgrok · ' + ($props.source || '')">
@@ -647,18 +699,18 @@ createApp({
       <span class="sgt-pos" v-if="store.state === 'ready'">L {{ store.current }} / {{ store.count }}</span>
       <span class="sgt-pos sgt-dim" v-else-if="store.state === 'loading'">加载中…</span>
       <button v-if="store.state === 'ready'" class="sgt-gear" :class="{ on: store.search.open }"
-              @click="toggleFind" title="在文件中查找 (⌘F / Ctrl+F)" aria-label="在文件中查找">
+              @click="toggleFind" :title="t('findShort')" :aria-label="t('find')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </button>
       <form class="sgt-jump" @submit.prevent="doJump" v-if="store.state === 'ready'">
-        <input v-model="store.jump" type="text" inputmode="numeric" placeholder="行号"
-               aria-label="跳转到行号" autocomplete="off" spellcheck="false" />
-        <button type="submit" title="跳转" aria-label="跳转到行号">
+        <input v-model="store.jump" type="text" inputmode="numeric" :placeholder="t('lineNo')"
+               :aria-label="t('jump')" autocomplete="off" spellcheck="false" />
+        <button type="submit" :title="t('jump')" :aria-label="t('jump')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </form>
       <button class="sgt-gear" :class="{ on: store.showSettings }" @click="store.showSettings = !store.showSettings"
-              title="显示设置" aria-label="显示设置" aria-expanded="false">
+              :title="t('settings')" :aria-label="t('settings')" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
         </svg>
@@ -666,20 +718,20 @@ createApp({
     </div>
     <transition name="sgt-slide">
       <div class="sgt-find" v-if="store.search.open">
-        <input ref="findInput" v-model="store.search.q" type="text" placeholder="在文件中查找"
-               aria-label="在文件中查找" autocomplete="off" spellcheck="false"
+        <input ref="findInput" v-model="store.search.q" type="text" :placeholder="t('find')"
+               :aria-label="t('find')" autocomplete="off" spellcheck="false"
                @keydown.enter.prevent="stepMatch($event.shiftKey ? -1 : 1)"
                @keydown.esc.stop.prevent="closeFind" />
         <span class="sgt-count" :class="{ dim: !store.search.q || !store.search.count }">
-          {{ store.search.q ? (store.search.count ? (store.search.current + 1) + ' / ' + store.search.count : '无结果') : '' }}
+          {{ store.search.q ? (store.search.count ? (store.search.current + 1) + ' / ' + store.search.count : t('noResults')) : '' }}
         </span>
-        <button type="button" @click="stepMatch(-1)" :disabled="!store.search.count" title="上一个 (Shift+Enter)" aria-label="上一个匹配">
+        <button type="button" @click="stepMatch(-1)" :disabled="!store.search.count" :title="t('prevMatch')" :aria-label="t('prevMatch')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
         </button>
-        <button type="button" @click="stepMatch(1)" :disabled="!store.search.count" title="下一个 (Enter)" aria-label="下一个匹配">
+        <button type="button" @click="stepMatch(1)" :disabled="!store.search.count" :title="t('nextMatch')" :aria-label="t('nextMatch')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <button type="button" @click="closeFind" title="关闭 (Esc)" aria-label="关闭查找">
+        <button type="button" @click="closeFind" :title="t('closeFind')" :aria-label="t('closeFind')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
@@ -687,23 +739,23 @@ createApp({
     <transition name="sgt-slide">
       <div class="sgt-panel" v-if="store.showSettings">
         <div class="sgt-row">
-          <span>字号</span>
+          <span>{{ t('fontSize') }}</span>
           <div class="sgt-step">
-            <button @click="bump('fontSize', -1, 11, 20)" aria-label="减小字号">−</button>
+            <button @click="bump('fontSize', -1, 11, 20)" :aria-label="t('decFontSize')">−</button>
             <b>{{ store.settings.fontSize }}px</b>
-            <button @click="bump('fontSize', 1, 11, 20)" aria-label="增大字号">+</button>
+            <button @click="bump('fontSize', 1, 11, 20)" :aria-label="t('incFontSize')">+</button>
           </div>
         </div>
         <div class="sgt-row">
-          <span>行高</span>
+          <span>{{ t('lineHeight') }}</span>
           <div class="sgt-step">
-            <button @click="bump('lineHeight', -0.1, 1.2, 2.2)" aria-label="减小行高">−</button>
+            <button @click="bump('lineHeight', -0.1, 1.2, 2.2)" :aria-label="t('decLineHeight')">−</button>
             <b>{{ store.settings.lineHeight }}</b>
-            <button @click="bump('lineHeight', 0.1, 1.2, 2.2)" aria-label="增大行高">+</button>
+            <button @click="bump('lineHeight', 0.1, 1.2, 2.2)" :aria-label="t('incLineHeight')">+</button>
           </div>
         </div>
         <div class="sgt-row">
-          <button class="sgt-reset" @click="reset">恢复默认</button>
+          <button class="sgt-reset" @click="reset">{{ t('reset') }}</button>
         </div>
       </div>
     </transition>

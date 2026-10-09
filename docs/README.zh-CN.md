@@ -35,6 +35,7 @@
 - **多源门户**——多个 OpenGrok 实例共用一个端口，门户页选择站点，带健康状态点
 - **认证透传**——HTTP Basic / 表单会话原样转发，在代理域名上登录一次即可
 - **fail-open**——结构不符预期的页面原样透传；OpenGrok 升级最多让体验退化，绝不会坏
+- **界面中英双语**——按浏览器语言自动切换
 - **单二进制、零依赖**——纯 Go 标准库；前端内嵌（无需 Node 工具链）
 
 ## 快速开始
@@ -50,7 +51,22 @@ cp config.example.json config.json   # 指向你的 OpenGrok
 ### Docker
 
 ```bash
+cp docker-compose.example.yml docker-compose.yml
 docker compose up -d --build
+```
+
+部署目录无需 clone 仓库——compose 可以直接以本仓库为构建上下文：
+
+```yaml
+services:
+  swiftgrok:
+    build:
+      context: https://github.com/magicdian/swiftgrok.git#main
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./config.json:/etc/swiftgrok/config.json:ro
 ```
 
 ## 配置

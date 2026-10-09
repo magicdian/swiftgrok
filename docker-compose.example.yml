@@ -1,0 +1,24 @@
+# Example compose file for swiftgrok.
+#
+# Copy this file to docker-compose.yml (or to a separate deployment
+# directory), place a config.json next to it and run:
+#
+#   docker compose up -d --build
+#
+# config.json must set "listen": "0.0.0.0:8081" to be reachable from
+# outside the container. The build context can also point at the git
+# repository directly, so a deployment directory never needs a clone:
+#
+#   build:
+#     context: https://github.com/magicdian/swiftgrok.git#main
+#     dockerfile: docker/Dockerfile
+services:
+  swiftgrok:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./config.json:/etc/swiftgrok/config.json:ro
+    restart: unless-stopped

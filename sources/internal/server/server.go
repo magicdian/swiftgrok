@@ -134,9 +134,14 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>404 · swiftgrok</title>
+		zh := strings.HasPrefix(strings.ToLower(r.Header.Get("Accept-Language")), "zh")
+		msg, back := "404 · This path does not belong to any configured source", "&larr; Back to the swiftgrok portal"
+		if zh {
+			msg, back = "404 · 该路径不属于任何已配置的源", "&larr; 返回 swiftgrok 主页"
+		}
+		fmt.Fprintf(w, `<!DOCTYPE html><html lang="%s"><head><meta charset="UTF-8"><title>404 · swiftgrok</title>
 <style>body{font-family:-apple-system,system-ui,sans-serif;background:#f8fafc;color:#0f172a;display:flex;justify-content:center;padding-top:20vh}div{text-align:center}a{color:#16a34a}</style></head>
-<body><div><p>404 · 该路径不属于任何已配置的源</p><p><a href="/">&larr; 返回 swiftgrok 主页</a></p></div></body></html>`)
+<body><div><p>%s</p><p><a href="/">%s</a></p></div></body></html>`, map[bool]string{true: "zh-CN", false: "en"}[zh], msg, back)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -255,7 +260,7 @@ func injectBeforeBodyEnd(body []byte, inject string) []byte {
 
 // homeButtonHTML is a self-contained floating pill linking back to the
 // swiftgrok portal, injected into OpenGrok pages passed through unchanged.
-const homeButtonHTML = `<style>#sg-home{position:fixed;top:10px;right:14px;z-index:2147483000;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;font:500 12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#475569;text-decoration:none;box-shadow:0 1px 3px rgba(15,23,42,.12);transition:color .15s ease,border-color .15s ease}#sg-home:hover{color:#16a34a;border-color:#bbf7d0}#sg-home svg{width:13px;height:13px}</style><a id="sg-home" href="/" title="返回 swiftgrok 主页" aria-label="返回 swiftgrok 主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>主页</a>`
+const homeButtonHTML = `<style>#sg-home{position:fixed;top:10px;right:14px;z-index:2147483000;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;font:500 12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#475569;text-decoration:none;box-shadow:0 1px 3px rgba(15,23,42,.12);transition:color .15s ease,border-color .15s ease}#sg-home:hover{color:#16a34a;border-color:#bbf7d0}#sg-home svg{width:13px;height:13px}</style><a id="sg-home" href="/" title="Back to swiftgrok portal" aria-label="Back to swiftgrok portal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span id="sg-home-label">Home</span></a><script>(function(){if((navigator.language||'').toLowerCase().indexOf('zh')!==0)return;var a=document.getElementById('sg-home');if(a){a.title='返回 swiftgrok 主页';a.setAttribute('aria-label','返回 swiftgrok 主页')}var l=document.getElementById('sg-home-label');if(l)l.textContent='主页'})()</script>`
 
 // cacheKey includes the request cookies and credentials: both can affect
 // xref rendering (search highlighting) and upstream access (HTTP Basic

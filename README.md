@@ -36,6 +36,7 @@ The line markup shown in the viewer **is OpenGrok's own** — syntax colors, sym
 - **Multi-source portal** — all your OpenGrok instances on one port with a picker page and per-source health dots
 - **Auth passthrough** — HTTP Basic / form sessions are forwarded verbatim; you log in on the proxy origin exactly once
 - **Fail-open** — pages that don't match the expected structure are passed through untouched; an OpenGrok upgrade can degrade the experience, never break it
+- **UI in English / 简体中文** — auto-detected from the browser language
 - **Single binary, zero dependencies** — pure Go standard library; the frontend is embedded (no Node toolchain)
 
 ## Quick start
@@ -51,7 +52,22 @@ Open `http://127.0.0.1:8081/`, pick a source, browse. When swiftgrok is not runn
 ### Docker
 
 ```bash
+cp docker-compose.example.yml docker-compose.yml
 docker compose up -d --build
+```
+
+The deployment directory doesn't need a clone at all — a compose file can build straight from this repository:
+
+```yaml
+services:
+  swiftgrok:
+    build:
+      context: https://github.com/magicdian/swiftgrok.git#main
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./config.json:/etc/swiftgrok/config.json:ro
 ```
 
 ## Configuration

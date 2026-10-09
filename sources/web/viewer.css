@@ -97,7 +97,7 @@ body {
 /* ---------- loading / error states ---------- */
 
 #sg-mount[data-state='loading'] #sg-vscroll::after {
-  content: 'swiftgrok 加载中…';
+  content: var(--sg-loading-text, 'swiftgrok loading…');
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +108,7 @@ body {
 }
 
 #sg-mount[data-state='error'] #sg-vscroll::after {
-  content: 'swiftgrok: 行数据加载失败，请刷新重试';
+  content: var(--sg-error-text, 'swiftgrok: failed to load lines, please refresh');
   display: flex;
   align-items: center;
   justify-content: center;

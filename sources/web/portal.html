@@ -98,7 +98,7 @@
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       swiftgrok
     </div>
-    <p class="sub">OpenGrok 源码阅读入口 · 选择要进入的站点</p>
+    <p class="sub" data-i18n="sub">OpenGrok 源码阅读入口 · 选择要进入的站点</p>
   </header>
   <ul class="list">
     {{range .Sources}}
@@ -114,11 +114,30 @@
     </li>
     {{end}}
   </ul>
-  <footer class="foot">
+  <footer class="foot" data-i18n="foot">
     超过行数阈值的源码文件将以 swiftgrok 懒加载查看器打开，其余页面（搜索、历史等）与 OpenGrok 原生体验一致。
   </footer>
 </main>
 <script>
+  // Minimal i18n: pick the browser language, English fallback.
+  var LOCALE = (navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en'
+  var I18N = {
+    en: {
+      sub: 'Read OpenGrok through swiftgrok · pick a source to browse',
+      foot: 'Source files above the line threshold open in the swiftgrok lazy-loading viewer; everything else (search, history, …) keeps the native OpenGrok experience.',
+      authTitle: 'HTTP auth required — sign in when you open it',
+    },
+    zh: {
+      sub: 'OpenGrok 源码阅读入口 · 选择要进入的站点',
+      foot: '超过行数阈值的源码文件将以 swiftgrok 懒加载查看器打开，其余页面（搜索、历史等）与 OpenGrok 原生体验一致。',
+      authTitle: '需要 HTTP 认证，点击进入时登录',
+    },
+  }
+  document.querySelectorAll('[data-i18n]').forEach(function (el) {
+    var v = I18N[LOCALE][el.dataset.i18n]
+    if (v) el.textContent = v
+  })
+
   // Availability dots come from swiftgrok's server-side probe: the browser
   // never touches the upstreams here, so protected (HTTP Basic) sources
   // do not pop a login dialog while browsing the portal.
@@ -133,7 +152,7 @@
           dot.classList.add('on')
         } else if (s.status === 401 || s.status === 403) {
           dot.classList.add('auth')
-          a.title = '需要 HTTP 认证，点击进入时登录'
+          a.title = I18N[LOCALE].authTitle
         } else {
           dot.classList.add('err')
         }
