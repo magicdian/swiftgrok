@@ -1,100 +1,114 @@
+<div align="center">
+
 # swiftgrok
 
-让 OpenGrok 的大文件浏览不再卡死 Safari。
+**Read OpenGrok's largest files at native speed.**
 
-swiftgrok 是一个放在 OpenGrok 前面的轻量反向代理（单二进制、零第三方依赖）。搜索、历史等所有请求字节级透传；只有超过行数阈值的 xref 文件页会被改写为「懒加载查看器」：浏览器首屏只收到几 KB 的页面骨架，代码行按需虚拟滚动渲染。行级 HTML 是 OpenGrok 原生生成的，语法着色、符号链接、主题完全复用，无需重新实现。
+A drop-in reverse proxy that gives [OpenGrok](https://oracle.github.io/opengrok/) a fast, virtualized code viewer — without touching OpenGrok itself.
 
-```
-Safari → swiftgrok (127.0.0.1:8081) ── 单一入口
-           ├─ /                      站点选择门户（浅色主题 + 健康状态）
-           ├─ /source/**             → 本地 OpenGrok (127.0.0.1:8080)
-           │    └─ xref 大文件       → 查看器 shell + lines API
-           └─ /android13/**               → 公司 OpenGrok (opengrok.example.com)
-                └─ 其余一切请求      字节级透传
-```
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Docker-lightgrey)](#quick-start)
+[![OpenGrok](https://img.shields.io/badge/OpenGrok-1.5%2B--1.13%2B-4c9c45)](#compatibility)
 
-多个源在同一个监听端口上按上下文路径复用（与公司 nginx 门户同构），因此 OpenGrok 页面的绝对路径链接无需任何改写。
+[English](README.md) · 简体中文
 
-实测（OpenGrok 1.13.25 / 1.5.10）：`ConnectivityService.java`（10,978 行）首屏 4.0MB → **7.4KB**；`ActivityManagerService.java`（17,697 行）6.9MB → **6.9KB**。
+</div>
 
-## 快速开始
+---
+
+Opening a 10k-line file on OpenGrok means the browser parses, lays out and paints **megabytes of pre-rendered HTML** — hundreds of thousands of DOM nodes that freeze any browser. This has been [reported upstream since 2020](https://github.com/oracle/opengrok/issues/3032) and is still unresolved, because the fix requires reworking OpenGrok's jQuery-era web UI.
+
+**swiftgrok fixes it from the outside.** It is a small reverse proxy that sits in front of your OpenGrok instances. Everything passes through byte-for-byte; file pages are rendered by a built-in lazy-loading viewer — swiftgrok replaces OpenGrok's renderer while keeping its search, history and everything else:
+
+| File | Before (DOM payload) | After |
+| --- | --- | --- |
+| `ConnectivityService.java` (10,978 lines) | 4.0 MB | **7.4 KB** |
+| `ActivityManagerService.java` (17,697 lines) | 6.9 MB | **6.9 KB** |
+
+The line markup shown in the viewer **is OpenGrok's own** — syntax colors, symbol links and themes come from OpenGrok itself, so there is no second renderer to maintain and no feature drift.
+
+## Features
+
+- **Virtual scrolling** — only the visible window (± 30 lines) is in the DOM; first paint is a few KB
+- **In-file search** — `⌘F` / `Ctrl+F` is taken over (native find only sees rendered lines); matches are highlighted by splicing marks back into OpenGrok's markup, tag- and entity-aware
+- **Cross-page selection & copy** — the selection lives in model space (the same idea CodeMirror-based viewers use), so you can drag-select far beyond the rendered window and `⌘C` copies the complete text
+- **Multi-source portal** — all your OpenGrok instances on one port with a picker page and per-source health dots
+- **Auth passthrough** — HTTP Basic / form sessions are forwarded verbatim; you log in on the proxy origin exactly once
+- **Fail-open** — pages that don't match the expected structure are passed through untouched; an OpenGrok upgrade can degrade the experience, never break it
+- **Single binary, zero dependencies** — pure Go standard library; the frontend is embedded (no Node toolchain)
+
+## Quick start
 
 ```bash
 make build
-cp config.example.json config.json   # 按需修改
+cp config.example.json config.json   # point it at your OpenGrok
 ./swiftgrok -config config.json
 ```
 
-浏览器访问 `http://127.0.0.1:8081/`，从门户选择站点进入。swiftgrok 不运行时直接访问 OpenGrok 原地址即可，互不影响。
+Open `http://127.0.0.1:8081/`, pick a source, browse. When swiftgrok is not running, keep using OpenGrok directly — the two never interfere.
 
-### Docker 部署
+### Docker
 
 ```bash
-# config.json 的 listen 改为 "0.0.0.0:8081"
 docker compose up -d --build
 ```
 
-零第三方依赖、静态编译（`CGO_ENABLED=0`），镜像只包含一个二进制。
-
-## 配置
-
-`config.json`：单一监听地址 + 源列表，每个 OpenGrok 实例一个源：
+## Configuration
 
 ```json
 {
   "listen": "127.0.0.1:8081",
   "sources": [
     { "name": "local", "upstream": "http://127.0.0.1:8080", "context": "/source" },
-    { "name": "android13",  "upstream": "http://opengrok.example.com",   "context": "/android13" }
+    { "name": "android13", "upstream": "http://opengrok.example.com", "context": "/android13" }
   ]
 }
 ```
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `listen` | swiftgrok 监听地址；Docker 内用 `0.0.0.0:8081` |
-| `name` | 标识，显示在门户与工具栏 |
-| `repo` | 可选，门户卡片上显示的仓库名，如 `aosp-android13` |
-| `upstream` | OpenGrok 基地址（scheme://host[:port]） |
-| `context` | webapp 上下文路径，如 `/source`、`/android13`；**必须唯一**（这是单端口复用的前提），`/` 保留给门户 |
-| `thresholdLines` | 超过此行数的 xref 页启用查看器。**0（默认）= 全部文件页都走 swiftgrok 渲染**；设为正数可让小文件原样透传 |
+| `listen` | Single entry point: the portal plus every source. Use `0.0.0.0:8081` in Docker |
+| `name` | Label shown on the portal and in the viewer toolbar |
+| `repo` | Optional repository label shown on the portal card |
+| `upstream` | OpenGrok base URL (`scheme://host[:port]`) |
+| `context` | Webapp context path (`/source`, `/android13`, …). Must be unique — sources are multiplexed on one listener by context path, which is why no link rewriting is ever needed. `/` is reserved for the portal |
+| `thresholdLines` | Fall back to OpenGrok's native rendering for pages below this line count. `0` (default, recommended) = swiftgrok renders every file page |
 
-所有页面右上角都有返回 swiftgrok 主页的按钮（查看器在工具栏内，其余页面为悬浮胶囊），方便随时切换站点。
+## How it works
 
-需要登录的实例：凭据与 Cookie 均双向透传，直接在 swiftgrok 代理出来的页面上登录即可。实测公司受限实例为 HTTP Basic 认证（nginx HTTP auth realm）——Safari 会在代理域名上弹原生登录框，同一 realm 登录一次即可覆盖全部受限实例；门户卡片的状态点会区分「可访问 / 需登录 / 不可达」。唯一不适用的形态是跳转到其他域名的跨域 SSO。
+OpenGrok's xref pages render **each source line as exactly one HTML line** inside a single `<pre>` — a convention stable across versions since 0.12. swiftgrok:
 
-## 工作原理
-
-OpenGrok 的 xref 页面里，每一行源码恰好是 HTML 中独立的一行，以 `<a class="l" name="N">` 开头。唯一的复杂点是跨行标签（块注释/字符串）。swiftgrok 做三件事：
-
-1. **切分**：按换行符切出每行，用标签栈把跨行标签在行首重开、行尾补闭，使每行成为自包含、可独立渲染的 HTML（本地与公司两个版本、数千行注释全部验证平衡）。
-2. **改写**：首屏只保留页面骨架（masthead、搜索框、脚本全部原样），`<pre>` 内替换为虚拟滚动容器，注入 viewer。
-3. **供数**：`GET <context>/swiftgrok/api/lines?p=<path>` 返回行数组 JSON，服务端按上游 ETag 做条件请求缓存（Cookie 参与缓存 key，避免搜索高亮串色）。
-
-前端为无构建的 ES module + vendored Vue 3（`go:embed` 内嵌），虚拟滚动只渲染可视区 ±30 行；支持 `#行号` 锚点跳转、行号点击、字号/行高设置（localStorage 持久化）。上游 302 到绝对 URL 时会改写 Location 指回代理。
-
-页面结构不符合预期时（如 OpenGrok 未来改版）自动退回原样透传，不会白屏。
-
-## 结构
+1. **splits** the page at line boundaries and re-balances tags that span lines (block comments, strings), producing self-contained, independently renderable line HTML;
+2. **serves a shell** — OpenGrok's own masthead, search box and scripts — with an empty code area plus a tiny virtual-scroll viewer;
+3. **feeds lines** via `GET <context>/swiftgrok/api/lines?p=<path>`, cached against the upstream `ETag`.
 
 ```
-cmd/swiftgrok/          入口
-internal/config/        配置加载与校验（context 唯一性）
-internal/xref/          页面切分（span 平衡）+ LRU 缓存
-internal/server/        单监听器、门户、代理、拦截改写、lines API
-web/                    门户与查看器前端（embed 进二进制）
+browser → swiftgrok :8081 ── /            portal (source picker)
+                          ├─ /source/**   → OpenGrok A (pass-through)
+                          ├─ /android13/** → OpenGrok B (pass-through)
+                          └─ large xref   → shell + lines API + viewer
 ```
 
-## 查看器功能
+## Compatibility
 
-- **文件内查找**：`⌘F` / `Ctrl+F` 接管原生查找（原生只能搜到已渲染行），Enter/Shift+Enter 在匹配间导航，Esc 关闭；高亮标注直接拼回 OpenGrok 原生行标记（跨标签、HTML 实体感知）
-- **跨页选择复制**：选区保存在模型空间（与 cs.android.com 的 CodeMirror 同思路），拖动到边缘自动滚动继续选择，`⌘C` 从模型提取完整文本——选区和高亮只渲染可视区，但复制结果覆盖全部所选行
-- **布局自适应**：动态测量 OpenGrok 固定头部的真实绘制底边，代码区与工具栏永不重叠；页面文档高度恒等于视口，不存在窗口级滚动
+- Tested against OpenGrok **1.5.10 and 1.13.25** (the line convention is far older, and anything unrecognized passes through unchanged)
+- Any modern browser benefits — the heavy DOM work happens server-side
+- Instances behind HTTP auth (Basic or form login) work through the proxy; the only unsupported case is a cross-domain SSO redirect
 
-## 路线图
+## Roadmap
 
-- [ ] 搜索结果高亮行跳转优化（hl 锚点）
-- [ ] 代码折叠（fold-space）适配
-- [ ] 双击选词、Shift+方向键扩展选区
-- [ ] 主题定制（自定义 CSS 注入点）
-- [ ] Safari Web Extension 设置面板 / 菜单栏 App
+- [ ] Search-result line highlight deep links (`hl` anchors)
+- [ ] Code folding (`fold-space`) support
+- [ ] Double-click word selection, Shift + arrow keys selection
+- [ ] Theme customization (custom CSS injection point)
+
+## Star History
+
+<a href="https://star-history.com/#magicdian/swiftgrok&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=magicdian/swiftgrok&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=magicdian/swiftgrok&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=magicdian/swiftgrok&type=Date" />
+ </picture>
+</a>
