@@ -23,6 +23,18 @@
 
 /* ---------- code area ---------- */
 
+/* The viewer replaces the page's scrollable content; stop the browser from
+ * scroll-anchoring the window when rendered lines swap, and restore the
+ * native paint order (fixed header above sliding content). */
+html,
+body {
+  overflow-anchor: none;
+}
+
+#whole_header {
+  z-index: 50;
+}
+
 #sg-mount {
   box-sizing: border-box;
 }
@@ -61,6 +73,11 @@
   font-family: var(--sg-mono);
   white-space: pre;
   min-width: 100%;
+  /* Selection is model-based (works across virtualized pages); native
+   * selection is disabled so the two never fight. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: text;
 }
 
 .sg-line:hover {
@@ -229,6 +246,95 @@
   color: var(--sg-accent);
   background: var(--sg-accent-soft);
   border-color: #bbf7d0;
+}
+
+/* ---------- in-file search ---------- */
+
+.sgt-find {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.sgt-find input {
+  width: 170px;
+  padding: 3px 8px;
+  border: 1px solid var(--sg-border);
+  border-radius: 7px;
+  background: var(--sg-surface-2);
+  font: inherit;
+  color: var(--sg-text);
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.sgt-find input:focus {
+  border-color: var(--sg-accent);
+}
+
+.sgt-find input::placeholder {
+  color: #94a3b8;
+}
+
+.sgt-count {
+  min-width: 56px;
+  text-align: center;
+  color: var(--sg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sgt-count.dim {
+  color: #94a3b8;
+}
+
+.sgt-find button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--sg-border);
+  border-radius: 6px;
+  background: var(--sg-surface);
+  color: var(--sg-muted);
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.sgt-find button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.sgt-find button:hover:not(:disabled) {
+  color: var(--sg-accent);
+  border-color: #bbf7d0;
+  background: var(--sg-accent-soft);
+}
+
+.sgt-find button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* match highlight inside rendered lines */
+mark.sg-m {
+  background: #fef08a;
+  color: inherit;
+}
+
+/* model-space selection highlight */
+mark.sg-sel {
+  background: #bfdbfe;
+  color: inherit;
 }
 
 .sgt-panel {

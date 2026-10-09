@@ -329,7 +329,7 @@ func (sr *SourceRuntime) handleAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	w.Header().Set("Content-Type", ctype)
-	w.Header().Set("Cache-Control", "max-age=300")
+	w.Header().Set("Cache-Control", "no-cache")
 	io.Copy(w, f)
 }
 
