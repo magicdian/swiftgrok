@@ -1,0 +1,10 @@
+# binary
+/swiftgrok
+/dist/
+
+# local config (contains internal endpoints)
+config.json
+
+# os / editor
+.DS_Store
+*.swp
