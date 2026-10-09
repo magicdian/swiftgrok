@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
-// Source describes one OpenGrok instance that swiftgrok fronts.
+// Source describes one OpenGrok instance that swiftgrok fronts. Sources are
+// multiplexed on the shared listener by their context path, which must be
+// unique across sources (e.g. "/source", "/android13").
 type Source struct {
-	// Name is a short label shown in logs and the viewer toolbar.
+	// Name is a short label shown on the portal page and viewer toolbar.
 	Name string `json:"name"`
-	// Listen is the local address swiftgrok serves this source on.
-	Listen string `json:"listen"`
 	// Upstream is the OpenGrok base URL, e.g. "http://127.0.0.1:8080".
 	Upstream string `json:"upstream"`
 	// Context is the webapp context path, e.g. "/source" or "/android13".
@@ -24,10 +25,13 @@ type Source struct {
 
 // Config is the top-level configuration file.
 type Config struct {
+	// Listen is the single swiftgrok entry point serving the portal and
+	// all sources. Use "0.0.0.0:8081" when running in Docker.
+	Listen  string   `json:"listen"`
 	Sources []Source `json:"sources"`
 }
 
-// Load reads a JSON config file and applies defaults.
+// Load reads a JSON config file and applies defaults and validation.
 func Load(path string) (*Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -40,17 +44,26 @@ func Load(path string) (*Config, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	if cfg.Listen == "" {
+		cfg.Listen = "127.0.0.1:8081"
+	}
 	if len(cfg.Sources) == 0 {
 		return nil, fmt.Errorf("%s: no sources configured", path)
 	}
+	seen := map[string]bool{}
 	for i := range cfg.Sources {
 		s := &cfg.Sources[i]
-		if s.Name == "" || s.Listen == "" || s.Upstream == "" {
-			return nil, fmt.Errorf("%s: source #%d needs name, listen and upstream", path, i)
+		if s.Name == "" || s.Upstream == "" || s.Context == "" {
+			return nil, fmt.Errorf("%s: source #%d needs name, upstream and context", path, i)
 		}
-		if s.Context == "" {
-			s.Context = "/source"
+		s.Context = "/" + strings.Trim(s.Context, "/")
+		if s.Context == "/" {
+			return nil, fmt.Errorf("%s: source %q: context \"/\" is reserved for the portal", path, s.Name)
 		}
+		if seen[s.Context] {
+			return nil, fmt.Errorf("%s: duplicate context %q (contexts must be unique to share one listener)", path, s.Context)
+		}
+		seen[s.Context] = true
 		if s.ThresholdLines <= 0 {
 			s.ThresholdLines = 3000
 		}

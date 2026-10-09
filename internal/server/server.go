@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -31,14 +32,23 @@ type SourceRuntime struct {
 	cache    *xref.Cache
 }
 
-// Server runs one listener per configured source.
+// Server serves the portal and all configured sources on a single listener.
+// Sources are multiplexed by their context path, which config validation
+// guarantees to be unique — the same shape as multiple OpenGrok webapps
+// behind one nginx, so upstream pages need no link rewriting.
 type Server struct {
+	cfg     *config.Config
 	sources []*SourceRuntime
+	portal  *template.Template
 }
 
 // New validates the config and prepares per-source runtimes.
 func New(cfg *config.Config) (*Server, error) {
-	s := &Server{}
+	portal, err := template.ParseFS(web.FS, "portal.html")
+	if err != nil {
+		return nil, fmt.Errorf("parse portal template: %w", err)
+	}
+	s := &Server{cfg: cfg, portal: portal}
 	for i := range cfg.Sources {
 		sc := cfg.Sources[i]
 		u, err := url.Parse(sc.Upstream)
@@ -59,16 +69,37 @@ func New(cfg *config.Config) (*Server, error) {
 	return s, nil
 }
 
-// Run starts all source listeners and blocks.
+// Run starts the listener and blocks.
 func (s *Server) Run() error {
-	errCh := make(chan error, len(s.sources))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.handleRoot)
 	for _, sr := range s.sources {
-		go func(sr *SourceRuntime) {
-			log.Printf("swiftgrok: source %q: http://%s -> %s%s", sr.cfg.Name, sr.cfg.Listen, sr.cfg.Upstream, sr.cfg.Context)
-			errCh <- http.ListenAndServe(sr.cfg.Listen, sr.mux())
-		}(sr)
+		sr := sr
+		mux.Handle(sr.cfg.Context+"/", sr.mux())
 	}
-	return <-errCh
+	for _, sr := range s.sources {
+		log.Printf("swiftgrok: source %q: /%s -> %s", sr.cfg.Name, strings.TrimPrefix(sr.cfg.Context, "/"), sr.cfg.Upstream+sr.cfg.Context)
+	}
+	log.Printf("swiftgrok: portal: http://%s/", s.cfg.Listen)
+	return http.ListenAndServe(s.cfg.Listen, mux)
+}
+
+// handleRoot serves the source-picker portal at "/" and a 404 page for
+// paths that match no source context.
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>404 · swiftgrok</title>
+<style>body{font-family:-apple-system,system-ui,sans-serif;background:#f8fafc;color:#0f172a;display:flex;justify-content:center;padding-top:20vh}div{text-align:center}a{color:#16a34a}</style></head>
+<body><div><p>404 · 该路径不属于任何已配置的源</p><p><a href="/">&larr; 返回 swiftgrok 主页</a></p></div></body></html>`)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	if err := s.portal.Execute(w, struct{ Sources []config.Source }{Sources: s.cfg.Sources}); err != nil {
+		log.Printf("swiftgrok: portal: %v", err)
+	}
 }
 
 func (sr *SourceRuntime) mux() *http.ServeMux {

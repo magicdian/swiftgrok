@@ -5,11 +5,15 @@
 swiftgrok 是一个放在 OpenGrok 前面的轻量反向代理（单二进制、零第三方依赖）。搜索、历史等所有请求字节级透传；只有超过行数阈值的 xref 文件页会被改写为「懒加载查看器」：浏览器首屏只收到几 KB 的页面骨架，代码行按需虚拟滚动渲染。行级 HTML 是 OpenGrok 原生生成的，语法着色、符号链接、主题完全复用，无需重新实现。
 
 ```
-Safari → swiftgrok (127.0.0.1:8081) → OpenGrok (127.0.0.1:8080)
-           ├─ /source/xref/**.html  行数 > 阈值 → 查看器 shell + lines API
-           ├─ 其余一切请求          字节级透传
-           └─ /source/swiftgrok/*   内嵌前端资产 / 行数据 API
+Safari → swiftgrok (127.0.0.1:8081) ── 单一入口
+           ├─ /                      站点选择门户（浅色主题 + 健康状态）
+           ├─ /source/**             → 本地 OpenGrok (127.0.0.1:8080)
+           │    └─ xref 大文件       → 查看器 shell + lines API
+           └─ /android13/**               → 公司 OpenGrok (opengrok.example.com)
+                └─ 其余一切请求      字节级透传
 ```
+
+多个源在同一个监听端口上按上下文路径复用（与公司 nginx 门户同构），因此 OpenGrok 页面的绝对路径链接无需任何改写。
 
 实测（OpenGrok 1.13.25 / 1.5.10）：`ConnectivityService.java`（10,978 行）首屏 4.0MB → **7.4KB**；`ActivityManagerService.java`（17,697 行）6.9MB → **6.9KB**。
 
@@ -21,29 +25,37 @@ cp config.example.json config.json   # 按需修改
 ./swiftgrok -config config.json
 ```
 
-然后浏览器访问 swiftgrok 的端口（如 `http://127.0.0.1:8081/source/xref/...`）而不是 OpenGrok 原端口。swiftgrok 不运行时直接访问原端口即可，互不影响。
+浏览器访问 `http://127.0.0.1:8081/`，从门户选择站点进入。swiftgrok 不运行时直接访问 OpenGrok 原地址即可，互不影响。
+
+### Docker 部署
+
+```bash
+# config.json 的 listen 改为 "0.0.0.0:8081"
+docker compose up -d --build
+```
+
+零第三方依赖、静态编译（`CGO_ENABLED=0`），镜像只包含一个二进制。
 
 ## 配置
 
-`config.json`，每个 OpenGrok 实例（源）一个本地端口：
+`config.json`：单一监听地址 + 源列表，每个 OpenGrok 实例一个源：
 
 ```json
 {
+  "listen": "127.0.0.1:8081",
   "sources": [
-    { "name": "local", "listen": "127.0.0.1:8081",
-      "upstream": "http://127.0.0.1:8080", "context": "/source" },
-    { "name": "android13", "listen": "127.0.0.1:8082",
-      "upstream": "http://opengrok.example.com", "context": "/android13" }
+    { "name": "local", "upstream": "http://127.0.0.1:8080", "context": "/source" },
+    { "name": "android13",  "upstream": "http://opengrok.example.com",   "context": "/android13" }
   ]
 }
 ```
 
 | 字段 | 说明 |
 | --- | --- |
-| `name` | 标识，显示在日志与工具栏 |
-| `listen` | swiftgrok 本地监听地址，一个源一个端口 |
+| `listen` | swiftgrok 监听地址；Docker 内用 `0.0.0.0:8081` |
+| `name` | 标识，显示在门户与工具栏 |
 | `upstream` | OpenGrok 基地址（scheme://host[:port]） |
-| `context` | webapp 上下文路径，如 `/source`、`/android13` |
+| `context` | webapp 上下文路径，如 `/source`、`/android13`；**必须唯一**（这是单端口复用的前提），`/` 保留给门户 |
 | `thresholdLines` | 超过此行数的 xref 页启用查看器，默认 3000；小文件原样透传 |
 
 需要登录的实例（如 HTTP auth）：直接在 swiftgrok 代理出来的页面上登录即可，Cookie 双向透传。注意：若登录是跳转到其他域名的 SSO，需要在登录后回到代理域名访问。
@@ -64,10 +76,10 @@ OpenGrok 的 xref 页面里，每一行源码恰好是 HTML 中独立的一行�
 
 ```
 cmd/swiftgrok/          入口
-internal/config/        配置加载
+internal/config/        配置加载与校验（context 唯一性）
 internal/xref/          页面切分（span 平衡）+ LRU 缓存
-internal/server/        代理、拦截改写、lines API、资产服务
-web/                    查看器前端（embed 进二进制）
+internal/server/        单监听器、门户、代理、拦截改写、lines API
+web/                    门户与查看器前端（embed 进二进制）
 ```
 
 ## 路线图

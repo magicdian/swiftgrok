@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>swiftgrok</title>
+<style>
+  :root {
+    --text: #0f172a;
+    --muted: #475569;
+    --dim: #94a3b8;
+    --border: #e5e7eb;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --accent: #16a34a;
+    --accent-soft: #dcfce7;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+    padding: 12vh 24px 48px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  .brand svg { width: 20px; height: 20px; }
+  .sub { margin: 8px 0 32px; color: var(--muted); }
+  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .card:hover {
+    border-color: #bbf7d0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.06);
+  }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dot {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: background-color 150ms ease;
+  }
+  .dot.on { background: var(--accent); }
+  .dot.err { background: #ef4444; }
+  .meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .meta b { font-size: 15px; font-weight: 600; }
+  .meta .mono {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta .mono i { font-style: normal; color: #cbd5e1; padding: 0 2px; }
+  .card > svg { flex: none; width: 16px; height: 16px; color: var(--dim); transition: color 150ms ease, transform 150ms ease; }
+  .card:hover > svg { color: var(--accent); transform: translateX(2px); }
+  .foot { margin-top: 36px; color: var(--dim); font-size: 12px; line-height: 1.7; }
+  .foot a { color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) {
+    .card, .card > svg, .dot { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      swiftgrok
+    </div>
+    <p class="sub">OpenGrok 源码阅读入口 · 选择要进入的站点</p>
+  </header>
+  <ul class="list">
+    {{range .Sources}}
+    <li>
+      <a class="card" href="{{.Context}}/" data-context="{{.Context}}">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="meta">
+          <b>{{.Name}}</b>
+          <span class="mono">{{.Context}}<i>&rarr;</i>{{.Upstream}}</span>
+        </span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
+    </li>
+    {{end}}
+  </ul>
+  <footer class="foot">
+    超过行数阈值的源码文件将以 swiftgrok 懒加载查看器打开，其余页面（搜索、历史等）与 OpenGrok 原生体验一致。
+  </footer>
+</main>
+<script>
+  // Probe each source root and reflect availability in the status dot.
+  document.querySelectorAll('.card').forEach(function (a) {
+    var dot = a.querySelector('.dot')
+    fetch(a.dataset.context + '/', { method: 'HEAD' })
+      .then(function (res) { dot.classList.add(res.ok ? 'on' : 'err') })
+      .catch(function () { dot.classList.add('err') })
+  })
+</script>
+</body>
+</html>
