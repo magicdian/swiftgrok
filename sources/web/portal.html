@@ -120,7 +120,7 @@
 </main>
 <script>
   // Availability dots come from swiftgrok's server-side probe: the browser
-  // never touches the upstreams here, so protected (HTTP Basic HTTP auth) sources
+  // never touches the upstreams here, so protected (HTTP Basic) sources
   // do not pop a login dialog while browsing the portal.
   fetch('/swiftgrok/status')
     .then(function (r) { return r.json() })

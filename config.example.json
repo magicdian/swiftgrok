@@ -2,7 +2,7 @@
   "listen": "127.0.0.1:8081",
   "sources": [
     {
-      "name": "magicdian-selfhosted",
+      "name": "local",
       "upstream": "http://127.0.0.1:8080",
       "context": "/source"
     },
@@ -14,51 +14,9 @@
     },
     {
       "name": "android15",
-      "repo": "aosp-android14",
-      "upstream": "http://opengrok.example.com",
-      "context": "/android14"
-    },
-    {
-      "name": "android15-qpr",
       "repo": "aosp-android15",
       "upstream": "http://opengrok.example.com",
       "context": "/android15"
-    },
-    {
-      "name": "android12",
-      "repo": "aosp-android12",
-      "upstream": "http://opengrok.example.com",
-      "context": "/android12"
-    },
-    {
-      "name": "android11",
-      "repo": "aosp-android11",
-      "upstream": "http://opengrok.example.com",
-      "context": "/android11"
-    },
-    {
-      "name": "mtk-android",
-      "repo": "mtk_android",
-      "upstream": "http://opengrok.example.com",
-      "context": "/android15"
-    },
-    {
-      "name": "mtk-yocto",
-      "repo": "mtk_yocto",
-      "upstream": "http://opengrok.example.com",
-      "context": "/mtk_yocto"
-    },
-    {
-      "name": "mtk-tbox",
-      "repo": "mtk_tbox",
-      "upstream": "http://opengrok.example.com",
-      "context": "/mtk_tbox"
-    },
-    {
-      "name": "android10",
-      "repo": "aosp-android10",
-      "upstream": "http://opengrok.example.com",
-      "context": "/android10"
     }
   ]
 }

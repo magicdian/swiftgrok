@@ -1,13 +1,16 @@
-.PHONY: build run vet fmt
+BINARY := swiftgrok
+SOURCES := sources
+
+.PHONY: build run vet fmt test
 
 build:
-	go build -o swiftgrok ./cmd/swiftgrok
+	cd $(SOURCES) && go build -o ../$(BINARY) ./cmd/swiftgrok
 
 run: build
-	./swiftgrok -config config.json
+	./$(BINARY) -config config.json
 
 vet:
-	go vet ./...
+	cd $(SOURCES) && go vet ./...
 
 fmt:
-	gofmt -l -w .
+	cd $(SOURCES) && gofmt -l -w .
