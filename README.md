@@ -57,7 +57,9 @@ docker compose up -d --build
 | `repo` | 可选，门户卡片上显示的仓库名，如 `aosp-android13` |
 | `upstream` | OpenGrok 基地址（scheme://host[:port]） |
 | `context` | webapp 上下文路径，如 `/source`、`/android13`；**必须唯一**（这是单端口复用的前提），`/` 保留给门户 |
-| `thresholdLines` | 超过此行数的 xref 页启用查看器，默认 3000；小文件原样透传 |
+| `thresholdLines` | 超过此行数的 xref 页启用查看器。**0（默认）= 全部文件页都走 swiftgrok 渲染**；设为正数可让小文件原样透传 |
+
+所有页面右上角都有返回 swiftgrok 主页的按钮（查看器在工具栏内，其余页面为悬浮胶囊），方便随时切换站点。
 
 需要登录的实例：凭据与 Cookie 均双向透传，直接在 swiftgrok 代理出来的页面上登录即可。实测公司受限实例为 HTTP Basic 认证（nginx HTTP auth realm）——Safari 会在代理域名上弹原生登录框，同一 realm 登录一次即可覆盖全部受限实例；门户卡片的状态点会区分「可访问 / 需登录 / 不可达」。唯一不适用的形态是跳转到其他域名的跨域 SSO。
 

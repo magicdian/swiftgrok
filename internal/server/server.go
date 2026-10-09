@@ -198,7 +198,7 @@ func (sr *SourceRuntime) transformResponse(res *http.Response) error {
 			}
 		}
 	}
-	if req.Method != http.MethodGet || res.StatusCode != http.StatusOK {
+	if req.Method != http.MethodGet {
 		return nil
 	}
 	if !strings.Contains(res.Header.Get("Content-Type"), "text/html") {
@@ -209,7 +209,12 @@ func (sr *SourceRuntime) transformResponse(res *http.Response) error {
 	if err != nil {
 		return replaceBody(res, body)
 	}
-	isXref := strings.HasPrefix(req.URL.Path, sr.cfg.Context+"/xref/") && !strings.HasSuffix(req.URL.Path, "/")
+	// OpenGrok renders full pages (search, error pages) with non-200 status
+	// codes, so the home button attaches to every HTML response regardless of
+	// status; only the viewer transform requires a healthy 200 xref file page.
+	isXref := res.StatusCode == http.StatusOK &&
+		strings.HasPrefix(req.URL.Path, sr.cfg.Context+"/xref/") &&
+		!strings.HasSuffix(req.URL.Path, "/")
 	if isXref {
 		sp, splitErr := xref.SplitPage(string(body))
 		if splitErr == nil && len(sp.Lines) >= sr.cfg.ThresholdLines {
@@ -250,12 +255,13 @@ func injectBeforeBodyEnd(body []byte, inject string) []byte {
 
 // homeButtonHTML is a self-contained floating pill linking back to the
 // swiftgrok portal, injected into OpenGrok pages passed through unchanged.
-const homeButtonHTML = `<style>#sg-home{position:fixed;bottom:14px;right:14px;z-index:2147483000;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;font:500 12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#475569;text-decoration:none;box-shadow:0 1px 3px rgba(15,23,42,.12);transition:color .15s ease,border-color .15s ease}#sg-home:hover{color:#16a34a;border-color:#bbf7d0}#sg-home svg{width:13px;height:13px}</style><a id="sg-home" href="/" title="返回 swiftgrok 主页" aria-label="返回 swiftgrok 主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>主页</a>`
+const homeButtonHTML = `<style>#sg-home{position:fixed;top:10px;right:14px;z-index:2147483000;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;font:500 12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#475569;text-decoration:none;box-shadow:0 1px 3px rgba(15,23,42,.12);transition:color .15s ease,border-color .15s ease}#sg-home:hover{color:#16a34a;border-color:#bbf7d0}#sg-home svg{width:13px;height:13px}</style><a id="sg-home" href="/" title="返回 swiftgrok 主页" aria-label="返回 swiftgrok 主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>主页</a>`
 
-// cacheKey includes the request cookies: cookies can affect xref rendering
-// (e.g. search highlighting), so entries must not be shared across cookies.
+// cacheKey includes the request cookies and credentials: both can affect
+// xref rendering (search highlighting) and upstream access (HTTP Basic
+// auth), so entries must not be shared across them.
 func (sr *SourceRuntime) cacheKey(req *http.Request) string {
-	return req.URL.RequestURI() + "|" + hashStr(req.Header.Get("Cookie"))
+	return req.URL.RequestURI() + "|" + hashStr(req.Header.Get("Cookie")+"\x00"+req.Header.Get("Authorization"))
 }
 
 func hashStr(s string) string {
@@ -354,7 +360,7 @@ func (sr *SourceRuntime) handleLines(w http.ResponseWriter, r *http.Request) {
 // loadEntry returns a cache entry for p, revalidating a cached entry with a
 // conditional upstream request and serving stale data if revalidation fails.
 func (sr *SourceRuntime) loadEntry(r *http.Request, p string) (*xref.Entry, error) {
-	key := p + "|" + hashStr(r.Header.Get("Cookie"))
+	key := p + "|" + hashStr(r.Header.Get("Cookie")+"\x00"+r.Header.Get("Authorization"))
 	if cached, ok := sr.cache.Get(key); ok {
 		fresh, err := sr.refetch(r, p, cached.ETag)
 		switch {
@@ -392,6 +398,11 @@ func (sr *SourceRuntime) refetch(r *http.Request, p, etag string) (*xref.Entry, 
 	}
 	if c := r.Header.Get("Cookie"); c != "" {
 		req.Header.Set("Cookie", c)
+	}
+	// Forward credentials too: protected sources authenticate with HTTP
+	// Basic, and the lines API must pass the browser's Authorization on.
+	if a := r.Header.Get("Authorization"); a != "" {
+		req.Header.Set("Authorization", a)
 	}
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)

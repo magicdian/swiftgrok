@@ -22,7 +22,9 @@ type Source struct {
 	// Context is the webapp context path, e.g. "/source" or "/android13".
 	Context string `json:"context"`
 	// ThresholdLines is the line count above which xref pages get the
-	// virtual-scroll viewer; smaller pages pass through untouched.
+	// virtual-scroll viewer. 0 (the default) activates the viewer for every
+	// file page, keeping rendering entirely inside swiftgrok's customization
+	// layer; set a positive value to pass small files through natively.
 	ThresholdLines int `json:"thresholdLines"`
 }
 
@@ -70,8 +72,8 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("%s: duplicate context %q (contexts must be unique to share one listener)", path, s.Context)
 		}
 		seen[s.Context] = true
-		if s.ThresholdLines <= 0 {
-			s.ThresholdLines = 3000
+		if s.ThresholdLines < 0 {
+			s.ThresholdLines = 0
 		}
 	}
 	return &cfg, nil
