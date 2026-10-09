@@ -11,7 +11,7 @@ A drop-in reverse proxy that gives [OpenGrok](https://oracle.github.io/opengrok/
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Docker-lightgrey)](#quick-start)
 [![OpenGrok](https://img.shields.io/badge/OpenGrok-1.5%2B--1.13%2B-4c9c45)](#compatibility)
 
-[English](README.md) · 简体中文
+English · [简体中文](docs/README.zh-CN.md)
 
 </div>
 

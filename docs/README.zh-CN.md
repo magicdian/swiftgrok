@@ -10,7 +10,7 @@
 [![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Docker-lightgrey)](#快速开始)
 
-[English](../README.md) · 简体中文
+[English](../README.md) · **简体中文**
 
 </div>
 
