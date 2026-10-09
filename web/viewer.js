@@ -12,6 +12,7 @@ const mount = document.getElementById('sg-mount')
 const scroller = document.getElementById('sg-vscroll')
 const sizer = document.getElementById('sg-sizer')
 const viewport = document.getElementById('sg-viewport')
+const toolbarEl = document.getElementById('sg-toolbar')
 const data = JSON.parse(document.getElementById('sg-data').textContent)
 
 const DEFAULTS = { fontSize: 13, lineHeight: 1.5 }
@@ -71,10 +72,44 @@ function measure() {
 function layout() {
   sizer.style.height = lines.length * lh + 'px'
   sizer.style.minWidth = Math.ceil(maxChars * charW + 10 * charW) + 'px'
-  // Fit the code area between the OpenGrok header and the viewport bottom.
+  // Keep the code area clear of OpenGrok's fixed header. The header's CSS
+  // height (e.g. 70px via #content margin) is not reliable across versions,
+  // window sizes and logged-in layouts, so measure the real painted bottom
+  // of the fixed header (children can overflow its box) and offset the mount.
+  mount.style.marginTop = '0px'
+  const headerBottom = paintedHeaderBottom()
+  if (headerBottom > 0) {
+    const mountTop = mount.getBoundingClientRect().top
+    if (headerBottom + 8 > mountTop) {
+      mount.style.marginTop = Math.ceil(headerBottom + 8 - mountTop) + 'px'
+    }
+  }
   const top = mount.getBoundingClientRect().top + window.scrollY
   const h = Math.max(240, window.innerHeight - top - 16)
   scroller.style.height = h + 'px'
+  placeToolbar()
+}
+
+// Painted bottom (viewport coords) of the fixed page header, if any.
+function paintedHeaderBottom() {
+  const header = document.querySelector('#whole_header')
+  if (!header) return 0
+  const pos = getComputedStyle(header).position
+  if (pos !== 'fixed' && pos !== 'sticky') return 0
+  let bottom = header.getBoundingClientRect().bottom
+  header.querySelectorAll('*').forEach((el) => {
+    const b = el.getBoundingClientRect()
+    if (b.height > 0 && b.bottom > bottom) bottom = b.bottom
+  })
+  return bottom
+}
+
+// The toolbar is viewport-fixed; keep it aligned with the code area top and
+// never over the header, even when the page scrolls or the header resizes.
+function placeToolbar() {
+  const minTop = paintedHeaderBottom() + 8
+  const t = Math.max(mount.getBoundingClientRect().top + 8, minTop, 8)
+  toolbarEl.style.top = Math.ceil(t) + 'px'
 }
 
 /* ---------- rendering ---------- */
@@ -109,6 +144,20 @@ scroller.addEventListener('scroll', () => {
 })
 
 window.addEventListener('resize', () => {
+  layout()
+  first = last = -1
+  render()
+})
+
+window.addEventListener('scroll', placeToolbar, { passive: true })
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => {
+    layout()
+    first = last = -1
+    render()
+  })
+}
+window.addEventListener('load', () => {
   layout()
   first = last = -1
   render()
@@ -216,6 +265,9 @@ createApp({
   template: `
   <div class="sgt">
     <div class="sgt-bar" role="toolbar" aria-label="swiftgrok">
+      <a class="sgt-home" href="/" title="返回 swiftgrok 主页" aria-label="返回 swiftgrok 主页">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </a>
       <span class="sgt-brand" :title="'swiftgrok · ' + ($props.source || '')">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         swiftgrok

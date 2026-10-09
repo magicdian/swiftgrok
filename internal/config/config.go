@@ -63,6 +63,9 @@ func Load(path string) (*Config, error) {
 		if s.Context == "/" {
 			return nil, fmt.Errorf("%s: source %q: context \"/\" is reserved for the portal", path, s.Name)
 		}
+		if s.Context == "/swiftgrok" {
+			return nil, fmt.Errorf("%s: source %q: context \"/swiftgrok\" is reserved for swiftgrok's own endpoints", path, s.Name)
+		}
 		if seen[s.Context] {
 			return nil, fmt.Errorf("%s: duplicate context %q (contexts must be unique to share one listener)", path, s.Context)
 		}

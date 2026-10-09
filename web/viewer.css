@@ -200,7 +200,8 @@
   height: 13px;
 }
 
-.sgt-gear {
+.sgt-gear,
+.sgt-home {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -212,15 +213,18 @@
   background: transparent;
   color: var(--sg-muted);
   cursor: pointer;
+  text-decoration: none;
   transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
 }
 
-.sgt-gear svg {
+.sgt-gear svg,
+.sgt-home svg {
   width: 14px;
   height: 14px;
 }
 
 .sgt-gear:hover,
+.sgt-home:hover,
 .sgt-gear.on {
   color: var(--sg-accent);
   background: var(--sg-accent-soft);
@@ -322,6 +326,7 @@
   .sgt-jump,
   .sgt-jump button,
   .sgt-gear,
+  .sgt-home,
   .sgt-step button,
   .sgt-reset {
     transition: none;

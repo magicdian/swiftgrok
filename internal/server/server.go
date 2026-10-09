@@ -17,7 +17,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"bytes"
 
 	"swiftgrok/internal/config"
 	"swiftgrok/internal/xref"
@@ -75,6 +78,7 @@ func New(cfg *config.Config) (*Server, error) {
 func (s *Server) Run() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleRoot)
+	mux.HandleFunc("/swiftgrok/status", s.handleStatus)
 	for _, sr := range s.sources {
 		sr := sr
 		mux.Handle(sr.cfg.Context+"/", sr.mux())
@@ -84,6 +88,44 @@ func (s *Server) Run() error {
 	}
 	log.Printf("swiftgrok: portal: http://%s/", s.cfg.Listen)
 	return http.ListenAndServe(s.cfg.Listen, mux)
+}
+
+// handleStatus probes every source's upstream from the server side and
+// reports reachability. Probing server-side keeps HTTP Basic auth prompts
+// away from the portal: the browser only talks to swiftgrok itself, so the
+// auth dialog appears only when the user actually opens a protected source.
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	type sourceStatus struct {
+		Name    string `json:"name"`
+		Context string `json:"context"`
+		Status  int    `json:"status"` // upstream HTTP status, 0 = unreachable
+	}
+	results := make([]sourceStatus, len(s.sources))
+	var wg sync.WaitGroup
+	for i, sr := range s.sources {
+		results[i] = sourceStatus{Name: sr.cfg.Name, Context: sr.cfg.Context}
+		wg.Add(1)
+		go func(i int, sr *SourceRuntime) {
+			defer wg.Done()
+			u := *sr.upstream
+			u.Path = sr.cfg.Context + "/"
+			req, err := http.NewRequest(http.MethodHead, u.String(), nil)
+			if err != nil {
+				return
+			}
+			client := &http.Client{Timeout: 4 * time.Second}
+			resp, err := client.Do(req)
+			if err != nil {
+				return
+			}
+			resp.Body.Close()
+			results[i].Status = resp.StatusCode
+		}(i, sr)
+	}
+	wg.Wait()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	json.NewEncoder(w).Encode(results)
 }
 
 // handleRoot serves the source-picker portal at "/" and a 404 page for
@@ -135,9 +177,9 @@ func (sr *SourceRuntime) newProxy() *httputil.ReverseProxy {
 }
 
 // transformResponse rewrites redirect targets that point at the upstream back
-// to this proxy (OpenGrok 302s file URLs to absolute ?r=<rev> locations), and
-// intercepts large xref file pages, rewriting them into the swiftgrok shell.
-// Everything else passes through unchanged.
+// to this proxy (OpenGrok 302s file URLs to absolute ?r=<rev> locations),
+// intercepts large xref file pages and rewrites them into the swiftgrok shell,
+// and attaches the portal home button to pages passed through as-is.
 func (sr *SourceRuntime) transformResponse(res *http.Response) error {
 	req := res.Request
 	if req == nil {
@@ -162,41 +204,53 @@ func (sr *SourceRuntime) transformResponse(res *http.Response) error {
 	if !strings.Contains(res.Header.Get("Content-Type"), "text/html") {
 		return nil
 	}
-	if !strings.HasPrefix(req.URL.Path, sr.cfg.Context+"/xref/") || strings.HasSuffix(req.URL.Path, "/") {
-		return nil
-	}
 	body, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
-		return restoreBody(res, body)
+		return replaceBody(res, body)
 	}
-	sp, splitErr := xref.SplitPage(string(body))
-	if splitErr != nil || len(sp.Lines) < sr.cfg.ThresholdLines {
-		// Fail-open: not a file view, unexpected structure, or small file.
-		return restoreBody(res, body)
+	isXref := strings.HasPrefix(req.URL.Path, sr.cfg.Context+"/xref/") && !strings.HasSuffix(req.URL.Path, "/")
+	if isXref {
+		sp, splitErr := xref.SplitPage(string(body))
+		if splitErr == nil && len(sp.Lines) >= sr.cfg.ThresholdLines {
+			// The page has already been fetched and decomposed; keep it for
+			// the lines API so the browser does not trigger a second fetch.
+			sr.cache.Put(sr.cacheKey(req), &xref.Entry{Split: sp, ETag: res.Header.Get("ETag")})
+			page := sr.buildViewerPage(req, sp)
+			res.Header.Set("Cache-Control", "no-cache")
+			res.Header.Del("ETag")
+			return replaceBody(res, []byte(page))
+		}
+		// Fail-open: unexpected structure or small file — fall through to a
+		// pass-through with the home button attached.
 	}
-
-	// The page has already been fetched and decomposed; keep it for the
-	// lines API so the browser does not trigger a second upstream fetch.
-	sr.cache.Put(sr.cacheKey(req), &xref.Entry{Split: sp, ETag: res.Header.Get("ETag")})
-
-	page := sr.buildViewerPage(req, sp)
-	res.Header.Del("Content-Encoding")
-	res.Header.Del("ETag")
-	res.Header.Set("Content-Type", "text/html; charset=utf-8")
-	res.Header.Set("Cache-Control", "no-cache")
-	res.Body = io.NopCloser(strings.NewReader(page))
-	res.ContentLength = int64(len(page))
-	res.Header.Set("Content-Length", strconv.Itoa(len(page)))
-	return nil
+	if !strings.Contains(string(body), `id="sg-home"`) {
+		body = injectBeforeBodyEnd(body, homeButtonHTML)
+	}
+	return replaceBody(res, body)
 }
 
-func restoreBody(res *http.Response, body []byte) error {
-	res.Body = io.NopCloser(strings.NewReader(string(body)))
+func replaceBody(res *http.Response, body []byte) error {
+	res.Body = io.NopCloser(bytes.NewReader(body))
 	res.ContentLength = int64(len(body))
 	res.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	res.Header.Del("Content-Encoding")
 	return nil
 }
+
+// injectBeforeBodyEnd appends inject before the closing </body> of an HTML
+// document (or at the end when no body tag is found).
+func injectBeforeBodyEnd(body []byte, inject string) []byte {
+	s := string(body)
+	if i := strings.LastIndex(strings.ToLower(s), "</body>"); i >= 0 {
+		return []byte(s[:i] + inject + s[i:])
+	}
+	return []byte(s + inject)
+}
+
+// homeButtonHTML is a self-contained floating pill linking back to the
+// swiftgrok portal, injected into OpenGrok pages passed through unchanged.
+const homeButtonHTML = `<style>#sg-home{position:fixed;bottom:14px;right:14px;z-index:2147483000;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;font:500 12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#475569;text-decoration:none;box-shadow:0 1px 3px rgba(15,23,42,.12);transition:color .15s ease,border-color .15s ease}#sg-home:hover{color:#16a34a;border-color:#bbf7d0}#sg-home svg{width:13px;height:13px}</style><a id="sg-home" href="/" title="返回 swiftgrok 主页" aria-label="返回 swiftgrok 主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>主页</a>`
 
 // cacheKey includes the request cookies: cookies can affect xref rendering
 // (e.g. search highlighting), so entries must not be shared across cookies.

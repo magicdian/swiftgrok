@@ -119,23 +119,27 @@
   </footer>
 </main>
 <script>
-  // Probe each source root and reflect availability in the status dot:
-  // green = reachable, amber = login required, red = unreachable.
-  document.querySelectorAll('.card').forEach(function (a) {
-    var dot = a.querySelector('.dot')
-    fetch(a.dataset.context + '/', { method: 'HEAD' })
-      .then(function (res) {
-        if (res.ok) {
+  // Availability dots come from swiftgrok's server-side probe: the browser
+  // never touches the upstreams here, so protected (HTTP Basic HTTP auth) sources
+  // do not pop a login dialog while browsing the portal.
+  fetch('/swiftgrok/status')
+    .then(function (r) { return r.json() })
+    .then(function (list) {
+      list.forEach(function (s) {
+        var a = document.querySelector('.card[data-context="' + CSS.escape(s.context) + '"]')
+        if (!a) return
+        var dot = a.querySelector('.dot')
+        if (s.status === 200) {
           dot.classList.add('on')
-        } else if (res.status === 401 || res.status === 403) {
+        } else if (s.status === 401 || s.status === 403) {
           dot.classList.add('auth')
           a.title = '需要 HTTP 认证，点击进入时登录'
         } else {
           dot.classList.add('err')
         }
       })
-      .catch(function () { dot.classList.add('err') })
-  })
+    })
+    .catch(function () { /* keep neutral dots on probe failure */ })
 </script>
 </body>
 </html>
