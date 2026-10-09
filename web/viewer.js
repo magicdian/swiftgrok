@@ -442,10 +442,21 @@ function extractSelection() {
 viewport.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || store.state !== 'ready') return
   if (e.target.closest('a')) return // line-number / symbol links keep working
+  // Take over the whole drag gesture: without this the browser starts its
+  // own native selection as soon as the pointer leaves the code area (over
+  // the selectable header/footer), painting blue over the page.
+  e.preventDefault()
+  window.getSelection().removeAllRanges()
   dragging = true
   selAnchor = selHead = posFromEvent(e)
   highlightCache = new Map()
   render(true)
+})
+
+// While a model drag is active no native selection may start anywhere —
+// the pointer routinely crosses the header and footer mid-drag.
+document.addEventListener('selectstart', (e) => {
+  if (dragging) e.preventDefault()
 })
 
 window.addEventListener('pointermove', (e) => {
