@@ -40,6 +40,7 @@ const MESSAGES = {
     incFontSize: 'Increase font size',
     decLineHeight: 'Decrease line height',
     incLineHeight: 'Increase line height',
+    language: 'Language',
   },
   zh: {
     home: '返回 swiftgrok 主页',
@@ -61,6 +62,7 @@ const MESSAGES = {
     incFontSize: '增大字号',
     decLineHeight: '减小行高',
     incLineHeight: '增大行高',
+    language: '语言',
   },
 }
 
@@ -684,7 +686,11 @@ createApp({
       store.settings = Object.assign({}, DEFAULTS)
       applySettings()
     }
-    return { store, doJump, bump, reset, toggleFind, stepMatch, closeFind, findInput, t }
+    const setLocale = (l) => {
+      localStorage.setItem('sg-locale', l)
+      location.reload()
+    }
+    return { store, doJump, bump, reset, toggleFind, stepMatch, closeFind, findInput, t, locale: LOCALE, setLocale }
   },
   template: `
   <div class="sgt">
@@ -752,6 +758,13 @@ createApp({
             <button @click="bump('lineHeight', -0.1, 1.2, 2.2)" :aria-label="t('decLineHeight')">−</button>
             <b>{{ store.settings.lineHeight }}</b>
             <button @click="bump('lineHeight', 0.1, 1.2, 2.2)" :aria-label="t('incLineHeight')">+</button>
+          </div>
+        </div>
+        <div class="sgt-row">
+          <span>{{ t('language') }}</span>
+          <div class="sgt-lang">
+            <button :class="{ on: locale === 'en' }" @click="setLocale('en')">EN</button>
+            <button :class="{ on: locale === 'zh' }" @click="setLocale('zh')">中文</button>
           </div>
         </div>
         <div class="sgt-row">

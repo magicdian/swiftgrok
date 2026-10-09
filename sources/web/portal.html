@@ -86,6 +86,9 @@
   .card:hover > svg { color: var(--accent); transform: translateX(2px); }
   .foot { margin-top: 36px; color: var(--dim); font-size: 12px; line-height: 1.7; }
   .foot a { color: var(--muted); }
+  .lang-switch { display: block; margin-top: 10px; }
+  .lang-switch a { text-decoration: none; cursor: pointer; transition: color 150ms ease; }
+  .lang-switch a:hover { color: var(--accent); }
   @media (prefers-reduced-motion: reduce) {
     .card, .card > svg, .dot { transition: none; }
   }
@@ -114,13 +117,16 @@
     </li>
     {{end}}
   </ul>
-  <footer class="foot" data-i18n="foot">
-    超过行数阈值的源码文件将以 swiftgrok 懒加载查看器打开，其余页面（搜索、历史等）与 OpenGrok 原生体验一致。
+  <footer class="foot">
+    <span data-i18n="foot">超过行数阈值的源码文件将以 swiftgrok 懒加载查看器打开，其余页面（搜索、历史等）与 OpenGrok 原生体验一致。</span>
+    <span class="lang-switch">
+      <a href="#" data-lang="en">English</a> · <a href="#" data-lang="zh">简体中文</a>
+    </span>
   </footer>
 </main>
 <script>
   // Minimal i18n: pick the browser language, English fallback.
-  var LOCALE = (navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en'
+  var LOCALE = localStorage.getItem('sg-locale') || ((navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en')
   var I18N = {
     en: {
       sub: 'Read OpenGrok through swiftgrok · pick a source to browse',
@@ -136,6 +142,16 @@
   document.querySelectorAll('[data-i18n]').forEach(function (el) {
     var v = I18N[LOCALE][el.dataset.i18n]
     if (v) el.textContent = v
+  })
+  // Language switch: persist the choice and reload (the viewer reads the
+  // same key, so switching here applies everywhere).
+  document.querySelectorAll('.lang-switch a').forEach(function (a) {
+    if (a.dataset.lang === LOCALE) a.style.fontWeight = '600'
+    a.addEventListener('click', function (e) {
+      e.preventDefault()
+      localStorage.setItem('sg-locale', a.dataset.lang)
+      location.reload()
+    })
   })
 
   // Availability dots come from swiftgrok's server-side probe: the browser

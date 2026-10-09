@@ -392,6 +392,38 @@ mark.sg-sel {
   background: var(--sg-accent-soft);
 }
 
+.sgt-lang {
+  display: inline-flex;
+  border: 1px solid var(--sg-border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.sgt-lang button {
+  padding: 2px 9px;
+  border: none;
+  background: var(--sg-surface);
+  color: var(--sg-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.sgt-lang button + button {
+  border-left: 1px solid var(--sg-border);
+}
+
+.sgt-lang button:hover {
+  color: var(--sg-accent);
+  background: var(--sg-accent-soft);
+}
+
+.sgt-lang button.on {
+  color: #fff;
+  background: var(--sg-accent);
+}
+
 .sgt-reset {
   width: 100%;
   padding: 4px 0;
