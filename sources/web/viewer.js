@@ -141,6 +141,11 @@ function measure() {
   probe.className = 'sg-line'
   probe.style.position = 'absolute'
   probe.style.visibility = 'hidden'
+  // .sg-line carries min-width:100% — neutralize it or we measure the
+  // container width instead of the glyph advance.
+  probe.style.minWidth = '0'
+  probe.style.width = 'auto'
+  probe.style.whiteSpace = 'pre'
   probe.textContent = '0'.repeat(100)
   viewport.appendChild(probe)
   const rect = probe.getBoundingClientRect()
