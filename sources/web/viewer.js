@@ -474,8 +474,21 @@ function posFromEvent(e) {
   let line = Math.floor((e.clientY - rect.top + scroller.scrollTop) / lh)
   line = Math.max(0, Math.min(lines.length - 1, line))
   const lineEl = viewport.querySelector('.sg-line[data-n="' + (line + 1) + '"]')
-  const relX = lineEl ? e.clientX - lineEl.getBoundingClientRect().left : 0
-  let col = Math.round(relX / charW) - gutterLen(line + 1)
+  let col = 0
+  if (lineEl) {
+    // OpenGrok styles the line-number anchor as a fixed-width inline-block,
+    // so the source text does not start at digits x char-width — measure the
+    // actual origin (right edge of the fold-space placeholder). The anchor
+    // width is constant across lines, so any rendered line works as fallback.
+    const fold = lineEl.querySelector('.fold-space') || viewport.querySelector('.fold-space')
+    let srcX
+    if (fold) {
+      srcX = fold.getBoundingClientRect().right + parseFloat(getComputedStyle(fold).marginRight || 0)
+    } else {
+      srcX = lineEl.getBoundingClientRect().left + gutterLen(line + 1) * charW
+    }
+    col = Math.round((e.clientX - srcX) / charW)
+  }
   return { line, col: Math.max(0, Math.min(srcLen(line), col)) }
 }
 
