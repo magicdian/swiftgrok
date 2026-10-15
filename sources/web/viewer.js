@@ -741,7 +741,7 @@ createApp({
   <div class="sgt">
     <button v-if="store.collapsed" class="sgt-mini" @click="toggleCollapse"
             :title="t('expand')" :aria-label="t('expand')">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
     </button>
     <div v-else class="sgt-bar" role="toolbar" aria-label="swiftgrok">
       <a class="sgt-home" href="/" :title="t('home')" :aria-label="t('home')">
@@ -771,9 +771,7 @@ createApp({
         </svg>
       </button>
       <button class="sgt-gear" @click="toggleCollapse" :title="t('collapse')" :aria-label="t('collapse')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
       </button>
     </div>
     <transition name="sgt-slide">
