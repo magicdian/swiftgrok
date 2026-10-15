@@ -152,7 +152,12 @@ body {
   height: 15px;
 }
 
-.sgt-mini:hover {
+/* OpenGrok's own stylesheet ships `button:hover { color: #fff }` — keep the
+ * mini chevrons visible by pinning color and background on hover. */
+.sgt-mini:hover,
+.sgt-mini:active {
+  color: var(--sg-accent);
+  background: var(--sg-surface);
   border-color: #bbf7d0;
 }
 
