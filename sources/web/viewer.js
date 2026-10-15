@@ -41,6 +41,8 @@ const MESSAGES = {
     decLineHeight: 'Decrease line height',
     incLineHeight: 'Increase line height',
     language: 'Language',
+    collapse: 'Collapse',
+    expand: 'Expand swiftgrok',
   },
   zh: {
     home: '返回 swiftgrok 主页',
@@ -63,6 +65,8 @@ const MESSAGES = {
     decLineHeight: '减小行高',
     incLineHeight: '增大行高',
     language: '语言',
+    collapse: '收起',
+    expand: '展开 swiftgrok',
   },
 }
 
@@ -84,6 +88,7 @@ const store = reactive({
   showSettings: false,
   settings: loadSettings(),
   search: { open: false, q: '', count: 0, current: -1 },
+  collapsed: localStorage.getItem('sg-collapsed') === '1',
 })
 
 let lines = []
@@ -192,12 +197,20 @@ function paintedHeaderBottom() {
   return bottom
 }
 
-// The toolbar is viewport-fixed; keep it aligned with the code area top and
-// never over the header, even when the page scrolls or the header resizes.
+// The toolbar is viewport-fixed. It prefers the bottom band of the fixed
+// header (right side is usually empty there) so the code area stays clear;
+// without a fixed header it falls back to just above the code area.
 function placeToolbar() {
-  const minTop = paintedHeaderBottom() + 8
-  const t = Math.max(mount.getBoundingClientRect().top + 8, minTop, 8)
-  toolbarEl.style.top = Math.ceil(t) + 'px'
+  const bar = document.querySelector('.sgt-bar') || document.querySelector('.sgt-mini')
+  const barH = bar ? bar.getBoundingClientRect().height : 38
+  const headerBottom = paintedHeaderBottom()
+  let t
+  if (headerBottom > 0) {
+    t = headerBottom - barH - 6
+  } else {
+    t = mount.getBoundingClientRect().top + 8
+  }
+  toolbarEl.style.top = Math.max(Math.ceil(t), 8) + 'px'
 }
 
 /* ---------- rendering ---------- */
@@ -608,6 +621,10 @@ function stepMatch(delta) {
 }
 
 function openFind() {
+  if (store.collapsed) {
+    store.collapsed = false
+    persistCollapsed()
+  }
   store.search.open = true
   const sel = (window.getSelection().toString() || '').trim()
   if (sel && sel.length <= 200) store.search.q = sel
@@ -622,6 +639,16 @@ function openFind() {
 
 function closeFind() {
   store.search.open = false
+}
+
+function persistCollapsed() {
+  localStorage.setItem('sg-collapsed', store.collapsed ? '1' : '0')
+}
+
+function toggleCollapse() {
+  store.collapsed = !store.collapsed
+  persistCollapsed()
+  nextTick(placeToolbar)
 }
 
 function toggleFind() {
@@ -708,11 +735,15 @@ createApp({
       localStorage.setItem('sg-locale', l)
       location.reload()
     }
-    return { store, doJump, bump, reset, toggleFind, stepMatch, closeFind, findInput, t, locale: LOCALE, setLocale }
+    return { store, doJump, bump, reset, toggleFind, stepMatch, closeFind, findInput, t, locale: LOCALE, setLocale, toggleCollapse }
   },
   template: `
   <div class="sgt">
-    <div class="sgt-bar" role="toolbar" aria-label="swiftgrok">
+    <button v-if="store.collapsed" class="sgt-mini" @click="toggleCollapse"
+            :title="t('expand')" :aria-label="t('expand')">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    </button>
+    <div v-else class="sgt-bar" role="toolbar" aria-label="swiftgrok">
       <a class="sgt-home" href="/" :title="t('home')" :aria-label="t('home')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </a>
@@ -735,6 +766,11 @@ createApp({
       </form>
       <button class="sgt-gear" :class="{ on: store.showSettings }" @click="store.showSettings = !store.showSettings"
               :title="t('settings')" :aria-label="t('settings')" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+        </svg>
+      </button>
+      <button class="sgt-gear" @click="toggleCollapse" :title="t('collapse')" :aria-label="t('collapse')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
         </svg>

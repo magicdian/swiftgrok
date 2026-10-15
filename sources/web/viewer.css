@@ -131,6 +131,31 @@ body {
   color: var(--sg-text);
 }
 
+.sgt-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  color: var(--sg-accent);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.05);
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.sgt-mini svg {
+  width: 15px;
+  height: 15px;
+}
+
+.sgt-mini:hover {
+  border-color: #bbf7d0;
+}
+
 .sgt-bar {
   display: flex;
   align-items: center;
